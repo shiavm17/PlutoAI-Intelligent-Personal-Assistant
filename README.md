@@ -185,6 +185,6 @@ Pluto AI/
 
 **⭐ Star this repository if you find it helpful!**
 
-Made with ❤️ by Shivam Chaturvedi & the Pluto AI Team
+Made with ❤️ by Shivam Chaturvedi 
 
 </div>
