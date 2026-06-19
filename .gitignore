@@ -1,0 +1,56 @@
+# Pluto AI - Git Ignore Configurations
+
+# Environment variables (highly sensitive!)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Local python environments
+.conda/
+.venv/
+venv/
+ENV/
+env/
+active_env/
+
+# Python caching & bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Local databases & history data
+Data/web_chat_history.json
+Data/reminders.json
+Data/speech.mp3
+Data/*.json
+Data/*.mp3
+!Data/.gitkeep
+
+# Generated output assets
+Generated_Images/
+Generated_Images/*
+!Generated_Images/.gitkeep
+
+# IDEs & System specific folders
+.vscode/
+.idea/
+.project
+.pydevproject
+.settings/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
