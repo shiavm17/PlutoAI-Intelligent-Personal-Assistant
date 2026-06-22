@@ -29,7 +29,7 @@ pillow==10.1.0
 googlesearch-python==1.2.3
 mtranslate==1.8
 
-# Text & Speech
+# Text & Speech (Sarwam AI + Fallback)
 edge-tts==6.1.10
 pyttsx3==2.90
 SpeechRecognition==3.10.0

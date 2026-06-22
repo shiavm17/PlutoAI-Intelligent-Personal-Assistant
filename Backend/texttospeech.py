@@ -1,6 +1,7 @@
 # Backend/texttospeech.py
 """
-Text-to-speech via edge-tts, played back through pygame's mixer.
+Text-to-speech via Sarwam AI (primary) or edge-tts (fallback),
+played back through pygame's mixer.
 Falls back gracefully to console-only output if audio playback
 isn't available.
 """
@@ -10,7 +11,6 @@ import random
 import asyncio
 from pathlib import Path
 
-import edge_tts
 from dotenv import dotenv_values
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -19,6 +19,24 @@ SPEECH_FILE = DATA_DIR / "speech.mp3"
 
 env_vars = dotenv_values(BASE_DIR.parent / ".env")
 AssistantVoice = env_vars.get("AssistantVoice", "en-US-AriaNeural")
+SarwamAPIKey = env_vars.get("SarwamAPIKey", "")
+USE_SARWAM = SarwamAPIKey.strip() != ""
+
+# Import Sarwam AI if available
+try:
+    from sarwamAI import text_to_speech as sarwam_tts
+    SARWAM_AVAILABLE = True
+except ImportError:
+    SARWAM_AVAILABLE = False
+    print("[Warning] Sarwam AI module not available. Using fallback (edge-tts).")
+
+# Import edge-tts as fallback
+try:
+    import edge_tts
+    EDGE_TTS_AVAILABLE = True
+except ImportError:
+    EDGE_TTS_AVAILABLE = False
+    print("[Warning] edge-tts not found. TTS will be limited.")
 
 try:
     import pygame
@@ -31,12 +49,17 @@ _mixer_initialized = False
 
 
 async def TextToAudioFile(text: str) -> None:
+    """Generate audio using edge-tts (fallback method)"""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if SPEECH_FILE.exists():
         try:
             os.remove(SPEECH_FILE)
         except OSError as e:
             print(f"[Warning] Could not remove old speech file: {e}")
+
+    if not EDGE_TTS_AVAILABLE:
+        print("[Error] edge-tts not available")
+        return
 
     communicate = edge_tts.Communicate(text, AssistantVoice, pitch="+5Hz", rate="+13%")
     await communicate.save(str(SPEECH_FILE))
@@ -53,9 +76,27 @@ def _ensure_mixer() -> bool:
 
 
 def TTS(text: str, func=lambda r=None: True) -> bool:
-    """Generate speech audio and play it. `func()` is polled during
-    playback (returning False stops early); `func(False)` is called once
-    playback ends."""
+    """Generate speech audio and play it. Try Sarwam first, fallback to edge-tts.
+    `func()` is polled during playback (returning False stops early);
+    `func(False)` is called once playback ends."""
+    
+    # Try Sarwam AI first if available
+    if USE_SARWAM and SARWAM_AVAILABLE:
+        try:
+            print("[Voice] Using Sarwam AI TTS")
+            return sarwam_tts(text, func)
+        except Exception as e:
+            print(f"[Warning] Sarwam TTS failed: {e}. Falling back to edge-tts...")
+    
+    # Fallback to edge-tts
+    if not EDGE_TTS_AVAILABLE:
+        print(f"[Voice] (audio disabled) {text}")
+        try:
+            func(False)
+        except Exception:
+            pass
+        return False
+    
     try:
         asyncio.run(TextToAudioFile(text))
     except Exception as e:

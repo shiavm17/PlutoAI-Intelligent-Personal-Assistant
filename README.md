@@ -2,15 +2,16 @@
 
 <div align="center">
 
-![Pluto AI](https://img.shields.io/badge/Pluto%20AI-v1.1-indigo)
+![Pluto AI](https://img.shields.io/badge/Pluto%20AI-v2.0-indigo)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-green)
 ![Flask](https://img.shields.io/badge/Flask-3.0-red)
 ![PyQt5](https://img.shields.io/badge/GUI-PyQt5-blue)
+![Sarwam AI](https://img.shields.io/badge/Sarwam%20AI-✓-orange)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-**A premium, hands-free personal assistant featuring a gorgeous Light Theme and continuous Voice Wake-Word activation.**
+**A premium, hands-free personal assistant featuring Sarwam AI for high-quality speech recognition & synthesis, gorgeous Light Theme, and continuous Voice Wake-Word activation.**
 
-[Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Voice & Wake-Word Engine](#-voice--wake-word-engine) • [GitHub Push Prep](#-github-push-preparation) • [API Directory](#-api-endpoints)
+[Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Sarwam AI Setup](#-sarwam-ai-integration) • [Voice Engine](#-voice--wake-word-engine) • [API Directory](#-api-endpoints)
 
 </div>
 
@@ -18,29 +19,33 @@
 
 ## 🎯 Features
 
-### 🎙️ Continuous Voice Wake-Word Engine
-- **Always-Listening Standby**: Launches automatically in the background when the application starts.
-- **Natural Activation**: Wake Pluto by saying **"Activate"**, **"Hey Pluto"**, **"a Pluto"**, or just **"Pluto"**.
-- **Dynamic Greetings**: Responds vocally using custom Microsoft Edge Neural TTS voices, adjusting the greeting by local time: *"Good morning/afternoon/evening boss, I am Pluto your assistant, how can I help you?"*.
-- **Continuous Conversation Mode**: Once activated, Pluto stays in an active vocal session, executing consecutive speech prompts without repeating the wake phrase, until you say *"stop"* or remain silent.
+### 🎙️ Advanced Voice with Sarwam AI
+- **High-Quality Speech-to-Text (STT)**: Accurate transcription using Sarwam AI (with Google fallback)
+- **Premium Text-to-Speech (TTS)**: Natural-sounding voice synthesis with Sarwam AI (supports 20+ languages)
+- **Multilingual Support**: Seamlessly handle conversations in multiple languages
+- **Always-Listening Standby**: Launches automatically with continuous voice wake-word detection
+- **Natural Activation**: Wake Pluto by saying **"Activate"**, **"Hey Pluto"**, **"a Pluto"**, or just **"Pluto"**
+- **Dynamic Greetings**: Time-aware responses adjusting greeting by local time
 
-### 🎨 Premium Light Theme Redesign
-- **Glassmorphic Web Dashboard**: Designed with a clean, human-made aesthetic using a harmonious Slate-Indigo-Rose color palette, translucent white glass panels, subtle box-shadows, and smooth micro-animations.
-- **Sleek Desktop GUI**: Formatted PyQt5 window displaying an off-white background (`#f1f5f9`) and white card layouts with readable slate typography.
-- **Dynamic Waves Visualizer**: Smooth HTML Canvas drawing multi-layered sound waves that dynamically morph speed and color (Indigo, Rose, Violet) based on the bot's state (*idle, listening, processing, speaking*).
+### 🎨 Premium Light Theme Design
+- **Glassmorphic Web Dashboard**: Clean aesthetic with Slate-Indigo-Rose palette, translucent panels, smooth animations
+- **Sleek Desktop GUI**: PyQt5 interface with off-white background and white card layouts
+- **Dynamic Waves Visualizer**: Canvas drawing multi-layered sound waves morphing with bot state
 
 ### 🤖 Intelligent Decision Engine
-- **Multi-LLM Integration**: Seamless routing using Groq (distilled Llama), Cohere Command, OpenAI, and DeepSeek-R1 models.
-- **Automated Task Routing**: Recognizes intent to open/close local applications, query search engines (Google, YouTube), create textual contents, generate stable-diffusion images, set reminders, or adjust system volume.
+- **Multi-LLM Integration**: Groq (Llama), Cohere Command, OpenAI, DeepSeek-R1
+- **Automated Task Routing**: Apps, search engines, content creation, image generation, reminders
+- **Real-time Web Search**: Live information retrieval for current events
 
 ---
 
 ## 📦 Installation
 
 ### Prerequisites
-- Python 3.8 or higher installed on your system.
-- Microphone input device.
-- Modern web browser (Chrome, Edge, Firefox, or Safari).
+- Python 3.8 or higher
+- Microphone input device
+- Modern web browser (Chrome, Edge, Firefox, Safari)
+- **Sarwam AI Account** (for high-quality TTS/STT) - [Get Free API Key](https://sarwam.com/)
 
 ### Detailed Setup
 
@@ -63,13 +68,66 @@
    ```
    Open the newly created `.env` file and insert your API credentials:
    ```ini
+   # LLM APIs
    CohereAPIKey=your_cohere_api_key
    GroqAPIKey=your_groq_api_key
+   
+   # Sarwam AI (Primary TTS/STT)
+   SarwamAPIKey=your_sarwam_api_key
+   
+   # Bot Configuration
    Username=YourName
    Assistantname=Pluto
-   AssistantVoice=en-IN-PrabhatNeural
+   AssistantVoice=en-IN-neural
    MicrophoneIndex=0
    ```
+
+---
+
+## 🎙️ Sarwam AI Integration
+
+### Why Sarwam AI?
+Pluto AI v2.0 now features **Sarwam AI** for superior speech processing:
+
+| Feature | Sarwam AI | Fallback (Google) |
+|---------|-----------|-------------------|
+| **Quality** | Premium, Natural Voice | Good |
+| **Speed** | Fast & Reliable | API Dependent |
+| **Languages** | 20+ Languages | Limited |
+| **Customization** | Pitch, Speed Control | None |
+| **Offline** | Online Only | Online Only |
+
+### Getting Started with Sarwam AI
+
+1. **Get Your API Key**
+   - Visit [sarwam.com](https://sarwam.com/)
+   - Sign up for a free account
+   - Navigate to API Keys section
+   - Copy your API key
+
+2. **Add to .env**
+   ```ini
+   SarwamAPIKey=your_actual_sarwam_key_here
+   ```
+
+3. **Test Sarwam Integration**
+   ```bash
+   python Backend/sarwamAI.py
+   ```
+   Select test options for TTS and STT
+
+### Voice Options
+Configure your preferred voice in `.env`:
+- `AssistantVoice=en-IN-neural` (Indian English - Default)
+- `AssistantVoice=en-US-neural` (American English)
+- `AssistantVoice=en-GB-neural` (British English)
+- And 15+ more languages available
+
+### Automatic Fallback
+If Sarwam API is unavailable or unreachable:
+- **TTS**: Falls back to edge-tts (Microsoft Azure)
+- **STT**: Falls back to Google Web Speech API
+- No manual intervention needed!
 
 ---
 

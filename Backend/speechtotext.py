@@ -1,13 +1,14 @@
 # Backend/speechtotext.py
 """
-Speech-to-text via sounddevice recording + SpeechRecognition's Google
-Web Speech API backend. Supports one-shot and continuous listening.
+Speech-to-text via Sarwam AI (primary) or Google Web Speech API (fallback).
+Supports one-shot and continuous listening.
 """
 
 import io
 import time
 import threading
 from pathlib import Path
+from typing import Optional, Callable
 
 import numpy as np
 import sounddevice as sd
@@ -23,12 +24,33 @@ try:
 except (TypeError, ValueError):
     MicrophoneIndex = None  # use system default device
 
+SarwamAPIKey = env_vars.get("SarwamAPIKey", "")
+USE_SARWAM = SarwamAPIKey.strip() != ""
+
+# Import Sarwam AI if available
+try:
+    from sarwamAI import SarwamSTT, initialize_sarwam
+    SARWAM_AVAILABLE = True
+except ImportError:
+    SARWAM_AVAILABLE = False
+    print("[Warning] Sarwam AI module not available. Using fallback (Google Web Speech API).")
+
+# Initialize Sarwam if available
+sarwam_stt = None
+if USE_SARWAM and SARWAM_AVAILABLE:
+    try:
+        initialize_sarwam()
+        sarwam_stt = SarwamSTT()
+    except Exception as e:
+        print(f"[Warning] Failed to initialize Sarwam STT: {e}")
+        SARWAM_AVAILABLE = False
+
 
 class SpeechToText:
     def __init__(self, samplerate: int = 44100, channels: int = 1, record_seconds: int = 5):
         self.recognizer = sr.Recognizer()
         self.is_listening = False
-        self.listen_thread: threading.Thread | None = None
+        self.listen_thread: Optional[threading.Thread] = None
         self.samplerate = samplerate
         self.channels = channels
         self.dtype = "int16"
@@ -37,7 +59,7 @@ class SpeechToText:
         try:
             sd.query_devices()
             self.microphone_available = True
-            print("[Voice] Microphone initialized (via sounddevice).")
+            print("[Voice] Microphone initialized")
         except Exception as e:
             print(f"[Error] initializing microphone: {e}")
             self.microphone_available = False
@@ -46,8 +68,8 @@ class SpeechToText:
     def microphone(self) -> bool:
         return self.microphone_available
 
-    def _record_clip(self) -> sr.AudioData | None:
-        """Record one clip and return it as SpeechRecognition AudioData."""
+    def _record_clip(self) -> Optional[sr.AudioData]:
+        """Record one clip and return it as SpeechRecognition AudioData or bytes."""
         try:
             recording = sd.rec(
                 int(self.record_seconds * self.samplerate),
@@ -62,43 +84,81 @@ class SpeechToText:
             wav.write(buf, self.samplerate, recording)
             buf.seek(0)
 
+            # Return both formats for flexibility
             with sr.AudioFile(buf) as source:
-                return self.recognizer.record(source)
+                audio_data = self.recognizer.record(source)
+            
+            # Also return raw bytes for Sarwam
+            buf.seek(0)
+            raw_bytes = buf.read()
+            
+            return (audio_data, raw_bytes)
         except Exception as e:
             print(f"[Error] recording audio: {e}")
             return None
 
-    def listen_continuously(self, callback) -> None:
+    def _recognize_with_sarwam(self, audio_bytes: bytes) -> Optional[str]:
+        """Recognize speech using Sarwam AI"""
+        if not SARWAM_AVAILABLE or not sarwam_stt:
+            return None
+        
+        try:
+            text = sarwam_stt.recognize(audio_bytes)
+            return text
+        except Exception as e:
+            print(f"[Warning] Sarwam recognition failed: {e}")
+            return None
+
+    def _recognize_with_google(self, audio_data: sr.AudioData) -> Optional[str]:
+        """Recognize speech using Google Web Speech API (fallback)"""
+        try:
+            text = self.recognizer.recognize_google(audio_data)
+            return text
+        except sr.UnknownValueError:
+            return None  # silence / unintelligible
+        except sr.RequestError as e:
+            print(f"[Error] Google Speech API error: {e}")
+            return None
+
+    def listen_continuously(self, callback: Callable) -> None:
         if not self.microphone_available:
             print("[Error] No microphone available.")
             return
 
         def loop():
             while self.is_listening:
-                audio = self._record_clip()
-                if audio is None:
+                result = self._record_clip()
+                if result is None:
                     time.sleep(0.5)
                     continue
-                try:
-                    text = self.recognizer.recognize_google(audio)
-                    if text and text.strip():
-                        print(f"[Voice] Recognized: {text}")
-                        callback(text)
-                except sr.UnknownValueError:
-                    pass  # silence / unintelligible — expected, not an error
-                except sr.RequestError as e:
-                    print(f"[Error] Speech API error: {e}")
-                    time.sleep(1)  # back off before retrying on network errors
+                
+                audio_data, raw_bytes = result
+                text = None
+                
+                # Try Sarwam first
+                if USE_SARWAM and SARWAM_AVAILABLE:
+                    text = self._recognize_with_sarwam(raw_bytes)
+                
+                # Fallback to Google
+                if not text:
+                    text = self._recognize_with_google(audio_data)
+                
+                if text and text.strip():
+                    print(f"[Voice] Recognized: {text}")
+                    callback(text)
+                    
+                time.sleep(0.3)  # Small delay between recordings
 
         self.listen_thread = threading.Thread(target=loop, daemon=True)
         self.listen_thread.start()
 
-    def start_listening(self, callback) -> None:
+    def start_listening(self, callback: Callable) -> None:
         if self.is_listening:
             return
         self.is_listening = True
         self.listen_continuously(callback)
-        print("[Voice] Started continuous listening...")
+        engine = "Sarwam" if (USE_SARWAM and SARWAM_AVAILABLE) else "Google"
+        print(f"[Voice] Started continuous listening ({engine} STT)...")
 
     def stop_listening(self) -> None:
         self.is_listening = False
@@ -107,27 +167,33 @@ class SpeechToText:
             self.listen_thread = None
         print("[Voice] Stopped listening.")
 
-    def listen_once(self) -> str | None:
+    def listen_once(self) -> Optional[str]:
         if not self.microphone_available:
             print("[Error] No microphone available.")
             return None
 
         print(f"[Voice] Listening ({self.record_seconds}s)...")
-        audio = self._record_clip()
-        if audio is None:
+        result = self._record_clip()
+        if result is None:
             return None
 
-        try:
-            print("[Voice] Processing...")
-            text = self.recognizer.recognize_google(audio)
+        audio_data, raw_bytes = result
+        text = None
+        
+        # Try Sarwam first
+        if USE_SARWAM and SARWAM_AVAILABLE:
+            text = self._recognize_with_sarwam(raw_bytes)
+        
+        # Fallback to Google
+        if not text:
+            text = self._recognize_with_google(audio_data)
+        
+        if text:
             print(f"[Voice] You said: {text}")
             return text
-        except sr.UnknownValueError:
-            print("[Error] Could not understand audio")
-            return None
-        except sr.RequestError as e:
-            print(f"[Error] Speech API error: {e}")
-            return None
+        
+        print("[Error] Could not understand audio")
+        return None
 
 
 def get_available_microphones() -> list[str]:
